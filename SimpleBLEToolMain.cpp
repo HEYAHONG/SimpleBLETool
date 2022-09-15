@@ -104,6 +104,8 @@ SimpleBLEToolFrame::SimpleBLEToolFrame(wxFrame *frame)
 
 SimpleBLEToolFrame::~SimpleBLEToolFrame()
 {
+m_treeCtrl_adapter->DeleteAllItems();
+wxLog::EnableLogging(false);
 }
 
 void SimpleBLEToolFrame::OnClose(wxCloseEvent &event)
