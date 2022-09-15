@@ -1,0 +1,3 @@
+[submodule "SimpleBLE"]
+	path = SimpleBLE
+	url = ../../HEYAHONG/SimpleBLE.git
