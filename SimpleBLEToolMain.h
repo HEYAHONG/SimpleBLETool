@@ -26,7 +26,7 @@ class SimpleBLEToolFrame: public GUIFrame
 {
 public:
     SimpleBLEToolFrame(wxFrame *frame);
-    ~SimpleBLEToolFrame();
+    virtual ~SimpleBLEToolFrame();
 
     /*
     外设列表(wxTreeCtrl)

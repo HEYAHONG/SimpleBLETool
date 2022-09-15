@@ -57,12 +57,12 @@ class GUIFrame : public wxFrame
 		wxTimer m_UpdateTimer;
 
 		// Virtual event handlers, override them in your derived class
-		virtual void OnClose( wxCloseEvent& event ) = 0;
-		virtual void OnMenuClose( wxCommandEvent& event ) = 0;
-		virtual void OnMenuReFreshAdapterList( wxCommandEvent& event ) = 0;
-		virtual void OnMenuAbout( wxCommandEvent& event ) = 0;
-		virtual void OnUpdateTimer( wxTimerEvent& event ) = 0;
-		virtual void OnTreeAdapterRightClick( wxTreeEvent& event ) = 0;
+		virtual void OnClose( wxCloseEvent& event ) { event.Skip(); }
+		virtual void OnMenuClose( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnMenuReFreshAdapterList( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnMenuAbout( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnUpdateTimer( wxTimerEvent& event ) { event.Skip(); }
+		virtual void OnTreeAdapterRightClick( wxTreeEvent& event ) { event.Skip(); }
 
 
 	public:

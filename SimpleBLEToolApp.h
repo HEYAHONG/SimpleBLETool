@@ -16,6 +16,8 @@ class SimpleBLEToolApp : public wxApp
 {
     public:
         virtual bool OnInit();
+        SimpleBLEToolApp()=default;
+        virtual ~SimpleBLEToolApp()=default;
 };
 
 #endif // SIMPLEBLETOOLAPP_H

@@ -25,3 +25,8 @@ void SimpleBLEToolGUIFrame::OnAbout( wxCommandEvent& event )
 {
 // TODO: Implement OnAbout
 }
+
+SimpleBLEToolGUIFrame::~SimpleBLEToolGUIFrame()
+{
+
+}

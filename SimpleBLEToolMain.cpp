@@ -27,6 +27,10 @@ public:
     }
     virtual ~wxTreeCtrlAdapterItemData()
     {
+        if(adapter.scan_is_active())
+        {
+            adapter.scan_stop();
+        }
         adapter.set_callback_on_scan_start([]() {});
         adapter.set_callback_on_scan_stop([]() {});
         adapter.set_callback_on_scan_updated([](SimpleBLE::Peripheral) {});
