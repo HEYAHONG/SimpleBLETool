@@ -10,8 +10,9 @@
 #ifndef SIMPLEBLETOOLMAIN_H
 #define SIMPLEBLETOOLMAIN_H
 
-
-
+#include "simpleble/Adapter.h"
+#include "simpleble/PeripheralSafe.h"
+#include "simpleble/Utils.h"
 #include "SimpleBLEToolApp.h"
 
 
@@ -38,6 +39,20 @@ public:
     } wxTreeCtrlAdapterPerhID;
     std::map<wxString,std::map<wxString,wxTreeCtrlAdapterPerhID>> PerhList;
     std::mutex PerhList_Lock;
+
+    /*
+    注册扫描更新回调函数
+    */
+    void RegisterScanUpdateCallback(void * owner,std::function<void (SimpleBLE::Peripheral)>cb);
+    /*
+    取消注册扫描更新函数
+    */
+    void UnRegistterScanUpdateCallback(void *owner);
+
+    /*
+    添加更新UI操作
+    */
+    void AddUpdateUIFuncitonByOther(std::function<void(void)> func);
 
 private:
     virtual void OnClose(wxCloseEvent& event);
@@ -87,7 +102,11 @@ private:
 
     void UpdateBLEAdapterList();
 
-
+    /*
+    扫描更新相关数据
+    */
+    std::map<void *,std::function<void (SimpleBLE::Peripheral)>> ScanUpdateMap;
+    std::mutex ScanUpdateMapLock;
 };
 
 #endif // SIMPLEBLETOOLMAIN_H

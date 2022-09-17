@@ -12,7 +12,7 @@
 #include "simpleble/Utils.h"
 #include "simpleble/Logging.h"
 #include <wx/treectrl.h>
-
+#include "BLERSSIDialog.h"
 /*
 wxTreeCtrl的item
 */
@@ -37,18 +37,21 @@ public:
         adapter.set_callback_on_scan_found([](SimpleBLE::Peripheral) {});
     }
 };
-
 class wxTreeCtrlAdapterPerhItemData:public wxTreeItemData
 {
 public:
     SimpleBLE::Peripheral Perh;
+    BLERSSIDialog *rssi_dlg;
     wxTreeCtrlAdapterPerhItemData(SimpleBLE::Peripheral _Perh):Perh(_Perh)
     {
-
+        rssi_dlg=NULL;
     }
     virtual ~wxTreeCtrlAdapterPerhItemData()
     {
-
+        if(rssi_dlg!=NULL)
+        {
+            rssi_dlg->Close();
+        }
     }
 };
 
@@ -104,8 +107,8 @@ SimpleBLEToolFrame::SimpleBLEToolFrame(wxFrame *frame)
 
 SimpleBLEToolFrame::~SimpleBLEToolFrame()
 {
-m_treeCtrl_adapter->DeleteAllItems();
-wxLog::EnableLogging(false);
+    m_treeCtrl_adapter->DeleteAllItems();
+    wxLog::EnableLogging(false);
 }
 
 void SimpleBLEToolFrame::OnClose(wxCloseEvent &event)
@@ -184,6 +187,29 @@ void SimpleBLEToolFrame::OnTreeAdapterRightClick( wxTreeEvent& event )
                     }
                     menu.AppendSeparator();
                 }
+                PopupMenu(&menu);
+            }
+        }
+        {
+            wxTreeCtrlAdapterPerhItemData * _Data=dynamic_cast<wxTreeCtrlAdapterPerhItemData *>(data);
+            if(_Data!=NULL)
+            {
+                wxMenu menu;
+                {
+                    auto menufunc=[&]( wxCommandEvent& event )
+                    {
+                        if(_Data->rssi_dlg==NULL)
+                        {
+                            _Data->rssi_dlg=new BLERSSIDialog(this);
+                            _Data->rssi_dlg->SetBLEPerh(_Data->Perh);
+                            _Data->rssi_dlg->SetOnClose([=](){_Data->rssi_dlg=NULL;});
+                        }
+                        _Data->rssi_dlg->Show();
+                    };
+                    wxMenuItem *item=menu.Append(1000,_T("实时RSSI数据"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+                menu.AppendSeparator();
                 PopupMenu(&menu);
             }
         }
@@ -283,6 +309,17 @@ void SimpleBLEToolFrame::UpdateBLEAdapterList()
                     wxString adapter_addr=adapter.address();
                     auto cb=[=](SimpleBLE::Peripheral perh)
                     {
+                        {
+                            //调用回调函数
+                            std::lock_guard<std::mutex> lock(ScanUpdateMapLock);
+                            for(auto pair:ScanUpdateMap)
+                            {
+                                if(pair.second!=NULL)
+                                {
+                                    pair.second(perh);
+                                }
+                            }
+                        }
                         std::lock_guard<std::mutex> lock(PerhList_Lock);
                         std::map<wxString,std::map<wxString,wxTreeCtrlAdapterPerhID>> &PerhList=this->PerhList;
                         wxTreeCtrlAdapterPerhID ID;
@@ -326,4 +363,28 @@ void SimpleBLEToolFrame::UpdateBLEAdapterList()
     };
 
     AddUpdateUIFunciton(cb);
+}
+
+
+void SimpleBLEToolFrame::RegisterScanUpdateCallback(void * owner,std::function<void (SimpleBLE::Peripheral)>cb)
+{
+    std::lock_guard<std::mutex> lock(ScanUpdateMapLock);
+    if(owner!=NULL)
+    {
+        ScanUpdateMap[owner]=cb;
+    }
+}
+
+void SimpleBLEToolFrame::UnRegistterScanUpdateCallback(void *owner)
+{
+    std::lock_guard<std::mutex> lock(ScanUpdateMapLock);
+    if(ScanUpdateMap.find(owner)!=ScanUpdateMap.end())
+    {
+        ScanUpdateMap.erase(owner);
+    }
+}
+
+void SimpleBLEToolFrame::AddUpdateUIFuncitonByOther(std::function<void(void)> func)
+{
+    AddUpdateUIFunciton(func);
 }

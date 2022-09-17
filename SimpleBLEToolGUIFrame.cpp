@@ -10,8 +10,8 @@
 #include "SimpleBLEToolGUIFrame.h"
 
 SimpleBLEToolGUIFrame::SimpleBLEToolGUIFrame( wxWindow* parent )
-:
-GUIFrame( parent )
+    :
+    GUIFrame( parent )
 {
 
 }

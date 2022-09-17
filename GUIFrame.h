@@ -29,6 +29,7 @@
 #include <wx/sizer.h>
 #include <wx/hyperlink.h>
 #include <wx/dialog.h>
+#include <wx/dataview.h>
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -92,6 +93,30 @@ class GUIAboutDialog : public wxDialog
 		GUIAboutDialog( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("关于"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = wxDEFAULT_DIALOG_STYLE );
 
 		~GUIAboutDialog();
+
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// Class GUIBLERSSIDialog
+///////////////////////////////////////////////////////////////////////////////
+class GUIBLERSSIDialog : public wxDialog
+{
+	private:
+
+	protected:
+		wxDataViewListCtrl* m_dataViewListCtrl;
+		wxDataViewColumn* m_dataViewListColumn_RSSI;
+		wxDataViewColumn* m_dataViewListColumn_Time;
+
+		// Virtual event handlers, override them in your derived class
+		virtual void OnClose( wxCloseEvent& event ) { event.Skip(); }
+
+
+	public:
+
+		GUIBLERSSIDialog( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 400,600 ), long style = wxDEFAULT_DIALOG_STYLE );
+
+		~GUIBLERSSIDialog();
 
 };
 

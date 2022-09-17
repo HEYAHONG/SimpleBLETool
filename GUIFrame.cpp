@@ -164,3 +164,32 @@ GUIAboutDialog::GUIAboutDialog( wxWindow* parent, wxWindowID id, const wxString&
 GUIAboutDialog::~GUIAboutDialog()
 {
 }
+
+GUIBLERSSIDialog::GUIBLERSSIDialog( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxDialog( parent, id, title, pos, size, style )
+{
+	this->SetSizeHints( wxSize( -1,-1 ), wxDefaultSize );
+
+	wxBoxSizer* bSizer5;
+	bSizer5 = new wxBoxSizer( wxVERTICAL );
+
+	m_dataViewListCtrl = new wxDataViewListCtrl( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0 );
+	m_dataViewListColumn_RSSI = m_dataViewListCtrl->AppendTextColumn( wxT("RSSI(dbm)"), wxDATAVIEW_CELL_INERT, -1, static_cast<wxAlignment>(wxALIGN_CENTER|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL), wxDATAVIEW_COL_RESIZABLE );
+	m_dataViewListColumn_Time = m_dataViewListCtrl->AppendTextColumn( wxT("时间"), wxDATAVIEW_CELL_INERT, -1, static_cast<wxAlignment>(wxALIGN_CENTER|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL), wxDATAVIEW_COL_RESIZABLE );
+	bSizer5->Add( m_dataViewListCtrl, 1, wxALL|wxEXPAND, 5 );
+
+
+	this->SetSizer( bSizer5 );
+	this->Layout();
+
+	this->Centre( wxBOTH );
+
+	// Connect Events
+	this->Connect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( GUIBLERSSIDialog::OnClose ) );
+}
+
+GUIBLERSSIDialog::~GUIBLERSSIDialog()
+{
+	// Disconnect Events
+	this->Disconnect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( GUIBLERSSIDialog::OnClose ) );
+
+}
