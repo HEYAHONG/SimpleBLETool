@@ -13,6 +13,7 @@
 #include "simpleble/Logging.h"
 #include <wx/treectrl.h>
 #include "BLERSSIDialog.h"
+#include "BLEPeripheralDialog.h"
 /*
 wxTreeCtrl的item
 */
@@ -42,15 +43,21 @@ class wxTreeCtrlAdapterPerhItemData:public wxTreeItemData
 public:
     SimpleBLE::Peripheral Perh;
     BLERSSIDialog *rssi_dlg;
+    BLEPeripheralDialog *perh_dlg;
     wxTreeCtrlAdapterPerhItemData(SimpleBLE::Peripheral _Perh):Perh(_Perh)
     {
         rssi_dlg=NULL;
+        perh_dlg=NULL;
     }
     virtual ~wxTreeCtrlAdapterPerhItemData()
     {
         if(rssi_dlg!=NULL)
         {
             rssi_dlg->Close();
+        }
+        if(perh_dlg!=NULL)
+        {
+            perh_dlg->Close();
         }
     }
 };
@@ -202,14 +209,40 @@ void SimpleBLEToolFrame::OnTreeAdapterRightClick( wxTreeEvent& event )
                         {
                             _Data->rssi_dlg=new BLERSSIDialog(this);
                             _Data->rssi_dlg->SetBLEPerh(_Data->Perh);
-                            _Data->rssi_dlg->SetOnClose([=](){_Data->rssi_dlg=NULL;});
+                            _Data->rssi_dlg->SetOnClose([=]()
+                            {
+                                _Data->rssi_dlg=NULL;
+                            });
                         }
                         _Data->rssi_dlg->Show();
+                        _Data->rssi_dlg->SetFocus();
                     };
                     wxMenuItem *item=menu.Append(1000,_T("实时RSSI数据"));
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
                 menu.AppendSeparator();
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event )
+                    {
+                        if(_Data->perh_dlg==NULL)
+                        {
+                            _Data->perh_dlg=new BLEPeripheralDialog(this);
+                            _Data->perh_dlg->SetBLEPerh(_Data->Perh);
+                            _Data->perh_dlg->SetOnClose([=]()
+                            {
+                                _Data->perh_dlg=NULL;
+                            });
+                        }
+                        _Data->perh_dlg->Show();
+                        _Data->perh_dlg->SetFocus();
+
+                    };
+                    wxMenuItem *item=menu.Append(1001,_T("外设详情"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+                menu.AppendSeparator();
+
                 PopupMenu(&menu);
             }
         }

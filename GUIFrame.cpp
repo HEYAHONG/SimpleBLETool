@@ -193,3 +193,47 @@ GUIBLERSSIDialog::~GUIBLERSSIDialog()
 	this->Disconnect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( GUIBLERSSIDialog::OnClose ) );
 
 }
+
+GUIPeripheral::GUIPeripheral( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxFrame( parent, id, title, pos, size, style )
+{
+	this->SetSizeHints( wxSize( 600,400 ), wxDefaultSize );
+	m_mgr.SetManagedWindow(this);
+	m_mgr.SetFlags(wxAUI_MGR_DEFAULT);
+
+	m_toolBar = new wxToolBar( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL );
+	m_button_unpair = new wxButton( m_toolBar, wxID_ANY, wxT("取消配对"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_toolBar->AddControl( m_button_unpair );
+	m_button_connect = new wxButton( m_toolBar, wxID_ANY, wxT("连接"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_toolBar->AddControl( m_button_connect );
+	m_button_disconnect = new wxButton( m_toolBar, wxID_ANY, wxT("断开连接"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_toolBar->AddControl( m_button_disconnect );
+	m_toolBar->Realize();
+	m_mgr.AddPane( m_toolBar, wxAuiPaneInfo() .Top() .CaptionVisible( false ).CloseButton( false ).PinButton( true ).Dock().Resizable().FloatingSize( wxDefaultSize ).LeftDockable( false ).RightDockable( false ).Floatable( false ) );
+
+
+	m_treeCtrl = new wxTreeCtrl( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_DEFAULT_STYLE|wxTR_SINGLE );
+	m_mgr.AddPane( m_treeCtrl, wxAuiPaneInfo() .Left() .CaptionVisible( false ).CloseButton( false ).Movable( false ).Dock().Resizable().FloatingSize( wxDefaultSize ).BottomDockable( false ).TopDockable( false ).LeftDockable( false ).RightDockable( false ).Floatable( false ).CentrePane() );
+
+	m_statusBar = this->CreateStatusBar( 2, wxSTB_DEFAULT_STYLE, wxID_ANY );
+
+	m_mgr.Update();
+	this->Centre( wxBOTH );
+
+	// Connect Events
+	this->Connect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( GUIPeripheral::OnClose ) );
+	m_button_unpair->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnUnpair ), NULL, this );
+	m_button_connect->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnConnect ), NULL, this );
+	m_button_disconnect->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnDisConnect ), NULL, this );
+}
+
+GUIPeripheral::~GUIPeripheral()
+{
+	// Disconnect Events
+	this->Disconnect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( GUIPeripheral::OnClose ) );
+	m_button_unpair->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnUnpair ), NULL, this );
+	m_button_connect->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnConnect ), NULL, this );
+	m_button_disconnect->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnDisConnect ), NULL, this );
+
+	m_mgr.UnInit();
+
+}

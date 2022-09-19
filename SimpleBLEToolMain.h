@@ -92,11 +92,14 @@ private:
         while(UpdateUI.Queue.size()>0)
         {
             std::function<void(void)> cb=UpdateUI.Queue.front();
+            UpdateUI.Queue.pop();
             if(cb!=NULL)
             {
+                UpdateUI.lock.unlock();
                 cb();
+                UpdateUI.lock.lock();
             }
-            UpdateUI.Queue.pop();
+
         };
     }
 

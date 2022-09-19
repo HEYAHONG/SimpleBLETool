@@ -30,6 +30,8 @@
 #include <wx/hyperlink.h>
 #include <wx/dialog.h>
 #include <wx/dataview.h>
+#include <wx/button.h>
+#include <wx/toolbar.h>
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -117,6 +119,37 @@ class GUIBLERSSIDialog : public wxDialog
 		GUIBLERSSIDialog( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 400,600 ), long style = wxDEFAULT_DIALOG_STYLE );
 
 		~GUIBLERSSIDialog();
+
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// Class GUIPeripheral
+///////////////////////////////////////////////////////////////////////////////
+class GUIPeripheral : public wxFrame
+{
+	private:
+
+	protected:
+		wxToolBar* m_toolBar;
+		wxButton* m_button_unpair;
+		wxButton* m_button_connect;
+		wxButton* m_button_disconnect;
+		wxTreeCtrl* m_treeCtrl;
+		wxStatusBar* m_statusBar;
+
+		// Virtual event handlers, override them in your derived class
+		virtual void OnClose( wxCloseEvent& event ) { event.Skip(); }
+		virtual void OnUnpair( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnConnect( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnDisConnect( wxCommandEvent& event ) { event.Skip(); }
+
+
+	public:
+
+		GUIPeripheral( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( -1,-1 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
+		wxAuiManager m_mgr;
+
+		~GUIPeripheral();
 
 };
 
