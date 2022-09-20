@@ -190,8 +190,6 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
     {
         m_treeCtrl->SelectItem(event.GetItem());
         wxMenu menu;
-        SimpleBLE::Safe::Peripheral perh(Perh);
-
         {
             auto menufunc=[&]( wxCommandEvent& event_menu )
             {
@@ -229,9 +227,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
             {
                 //特征
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
-
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         std::optional<SimpleBLE::ByteArray> read_data;
                         try
                         {
@@ -266,8 +264,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 }
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         InputDialog dlg(this);
                         if(wxID_OK==dlg.ShowModal())
                         {
@@ -304,8 +303,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 }
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         InputDialog dlg(this);
                         if(wxID_OK==dlg.ShowModal())
                         {
@@ -342,8 +342,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 }
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         auto cb=[=](SimpleBLE::ByteArray payload)
                         {
                             std::string str=payload;
@@ -373,8 +374,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 }
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         auto cb=[=](SimpleBLE::ByteArray payload)
                         {
                             std::string str=payload;
@@ -404,8 +406,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 }
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         if(perh.unsubscribe(_Data->ServiceUUID,_Data->CharUUID))
                         {
                             wxMessageBox(_T("取消数据订阅成功!"),_T("提示"));
@@ -428,9 +431,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 //描述符
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
-
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         std::optional<SimpleBLE::ByteArray> read_data;
                         try
                         {
@@ -466,8 +469,9 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                 }
 
                 {
-                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
+                        SimpleBLE::Safe::Peripheral perh(_Data->perh);
                         InputDialog dlg(this);
                         if(wxID_OK==dlg.ShowModal())
                         {
