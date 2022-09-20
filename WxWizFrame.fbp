@@ -1076,6 +1076,7 @@
                 <property name="window_extra_style"></property>
                 <property name="window_name"></property>
                 <property name="window_style"></property>
+                <event name="OnTreeItemRightClick">OnTreeItemRightClick</event>
             </object>
             <object class="wxStatusBar" expanded="0">
                 <property name="bg"></property>

@@ -224,6 +224,7 @@ GUIPeripheral::GUIPeripheral( wxWindow* parent, wxWindowID id, const wxString& t
 	m_button_unpair->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnUnpair ), NULL, this );
 	m_button_connect->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnConnect ), NULL, this );
 	m_button_disconnect->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnDisConnect ), NULL, this );
+	m_treeCtrl->Connect( wxEVT_COMMAND_TREE_ITEM_RIGHT_CLICK, wxTreeEventHandler( GUIPeripheral::OnTreeItemRightClick ), NULL, this );
 }
 
 GUIPeripheral::~GUIPeripheral()
@@ -233,6 +234,7 @@ GUIPeripheral::~GUIPeripheral()
 	m_button_unpair->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnUnpair ), NULL, this );
 	m_button_connect->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnConnect ), NULL, this );
 	m_button_disconnect->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIPeripheral::OnDisConnect ), NULL, this );
+	m_treeCtrl->Disconnect( wxEVT_COMMAND_TREE_ITEM_RIGHT_CLICK, wxTreeEventHandler( GUIPeripheral::OnTreeItemRightClick ), NULL, this );
 
 	m_mgr.UnInit();
 

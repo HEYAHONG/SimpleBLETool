@@ -142,6 +142,7 @@ class GUIPeripheral : public wxFrame
 		virtual void OnUnpair( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnConnect( wxCommandEvent& event ) { event.Skip(); }
 		virtual void OnDisConnect( wxCommandEvent& event ) { event.Skip(); }
+		virtual void OnTreeItemRightClick( wxTreeEvent& event ) { event.Skip(); }
 
 
 	public:

@@ -18,6 +18,7 @@ protected:
     virtual void OnUnpair( wxCommandEvent& event );
     virtual void OnConnect( wxCommandEvent& event );
     virtual void OnDisConnect( wxCommandEvent& event );
+    virtual void OnTreeItemRightClick( wxTreeEvent& event );
 
 private:
 
