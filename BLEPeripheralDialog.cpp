@@ -270,7 +270,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                         InputDialog dlg(this);
                         if(wxID_OK==dlg.ShowModal())
                         {
-                            std::string str=dlg.GetData();
+                            std::string str=dlg.GetData().ToStdString();
                             std::string hexstr;
                             {
                                 for(size_t i=0; i<str.length(); i++)
@@ -309,7 +309,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                         InputDialog dlg(this);
                         if(wxID_OK==dlg.ShowModal())
                         {
-                            std::string str=dlg.GetData();
+                            std::string str=dlg.GetData().ToStdString();
                             std::string hexstr;
                             {
                                 for(size_t i=0; i<str.length(); i++)
@@ -475,7 +475,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                         InputDialog dlg(this);
                         if(wxID_OK==dlg.ShowModal())
                         {
-                            std::string str=dlg.GetData();
+                            std::string str=dlg.GetData().ToStdString();
                             std::string hexstr;
                             {
                                 for(size_t i=0; i<str.length(); i++)
