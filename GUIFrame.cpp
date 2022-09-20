@@ -239,3 +239,45 @@ GUIPeripheral::~GUIPeripheral()
 	m_mgr.UnInit();
 
 }
+
+GUIInputDialog::GUIInputDialog( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxDialog( parent, id, title, pos, size, style )
+{
+	this->SetSizeHints( wxDefaultSize, wxDefaultSize );
+
+	wxWrapSizer* wSizer;
+	wSizer = new wxWrapSizer( wxHORIZONTAL, wxWRAPSIZER_DEFAULT_FLAGS );
+
+	m_textCtrl = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize( 500,200 ), 0 );
+	wSizer->Add( m_textCtrl, 1, wxALL|wxALIGN_CENTER_VERTICAL|wxALIGN_CENTER_HORIZONTAL, 5 );
+
+	wxBoxSizer* bSizer;
+	bSizer = new wxBoxSizer( wxHORIZONTAL );
+
+
+	bSizer->Add( 400, 0, 1, wxEXPAND, 5 );
+
+	m_checkBox_Hex = new wxCheckBox( this, wxID_ANY, wxT("HEX"), wxDefaultPosition, wxDefaultSize, 0 );
+	bSizer->Add( m_checkBox_Hex, 0, wxALL|wxALIGN_CENTER_VERTICAL, 5 );
+
+	m_button_ok = new wxButton( this, wxID_ANY, wxT("确定"), wxDefaultPosition, wxDefaultSize, 0 );
+	bSizer->Add( m_button_ok, 0, wxALL, 5 );
+
+
+	wSizer->Add( bSizer, 1, wxEXPAND, 5 );
+
+
+	this->SetSizer( wSizer );
+	this->Layout();
+
+	this->Centre( wxBOTH );
+
+	// Connect Events
+	m_button_ok->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIInputDialog::OnOk ), NULL, this );
+}
+
+GUIInputDialog::~GUIInputDialog()
+{
+	// Disconnect Events
+	m_button_ok->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GUIInputDialog::OnOk ), NULL, this );
+
+}

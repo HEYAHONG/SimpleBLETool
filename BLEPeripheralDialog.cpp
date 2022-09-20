@@ -5,6 +5,8 @@
 
 #include <wx/treectrl.h>
 #include <wx/clipbrd.h>
+#include "InputDialog.h"
+
 
 class wxTreeCtrlPerhItemData:public wxTreeItemData
 {
@@ -49,7 +51,13 @@ public:
     }
     virtual ~wxTreeCtrlServiceCharItemData()
     {
-
+        if(perh.initialized())
+        {
+            SimpleBLE::Safe::Peripheral _perh(perh);
+            _perh.notify(ServiceUUID,CharUUID,[](SimpleBLE::ByteArray payload) {});
+            _perh.indicate(ServiceUUID,CharUUID,[](SimpleBLE::ByteArray payload) {});
+            _perh.unsubscribe(ServiceUUID,CharUUID);
+        }
     }
 };
 
@@ -241,7 +249,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)str.c_str()[i]);
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -254,6 +262,160 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                         }
                     };
                     wxMenuItem *item=menu.Append(1301,_T("读取"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    {
+                        InputDialog dlg(this);
+                        if(wxID_OK==dlg.ShowModal())
+                        {
+                            std::string str=dlg.GetData();
+                            std::string hexstr;
+                            {
+                                for(size_t i=0; i<str.length(); i++)
+                                {
+                                    char buff[10]= {0};
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    hexstr+=buff;
+                                }
+                            }
+                            wxLogMessage(wxString(_T("准备写入数据到设备\r\n\t设备:%s\r\n\t服务:%s\r\n\t特征:%s\r\n\t数据:%s\r\n\t数据(HEX):%s")),wxString(_Data->perh.address()),_Data->ServiceUUID,_Data->CharUUID,wxString::FromUTF8(str.c_str(),str.length()),hexstr);
+                            if(perh.write_request(_Data->ServiceUUID,_Data->CharUUID,str))
+                            {
+                                wxLogMessage(_T("%s 写入数据成功!"),perh.address().value_or(""));
+                                wxMessageBox(_T("写入成功!"),_T("提示"));
+                            }
+                            else
+                            {
+                                wxLogMessage(_T("%s 写入数据失败!"),perh.address().value_or(""));
+                                wxMessageBox(_T("写入失败!"),_T("错误"));
+                            }
+
+                        }
+                        else
+                        {
+                            wxLogMessage(_T("%s 取消输入数据!!"),perh.address().value_or(""));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1302,_T("写入请求"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    {
+                        InputDialog dlg(this);
+                        if(wxID_OK==dlg.ShowModal())
+                        {
+                            std::string str=dlg.GetData();
+                            std::string hexstr;
+                            {
+                                for(size_t i=0; i<str.length(); i++)
+                                {
+                                    char buff[10]= {0};
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    hexstr+=buff;
+                                }
+                            }
+                            wxLogMessage(wxString(_T("准备写入数据到设备\r\n\t设备:%s\r\n\t服务:%s\r\n\t特征:%s\r\n\t数据:%s\r\n\t数据(HEX):%s")),wxString(_Data->perh.address()),_Data->ServiceUUID,_Data->CharUUID,wxString::FromUTF8(str.c_str(),str.length()),hexstr);
+                            if(perh.write_command(_Data->ServiceUUID,_Data->CharUUID,str))
+                            {
+                                wxLogMessage(_T("%s 写入数据成功!"),perh.address().value_or(""));
+                                wxMessageBox(_T("写入成功!"),_T("提示"));
+                            }
+                            else
+                            {
+                                wxLogMessage(_T("%s 写入数据失败!"),perh.address().value_or(""));
+                                wxMessageBox(_T("写入失败!"),_T("错误"));
+                            }
+
+                        }
+                        else
+                        {
+                            wxLogMessage(_T("%s 取消输入数据!!"),perh.address().value_or(""));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1303,_T("写入命令"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    {
+                        auto cb=[=](SimpleBLE::ByteArray payload)
+                        {
+                            std::string str=payload;
+                            std::string hexstr;
+                            {
+                                for(size_t i=0; i<str.length(); i++)
+                                {
+                                    char buff[10]= {0};
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    hexstr+=buff;
+                                }
+                            }
+                            wxLogMessage(wxString(_T("接收到通知数据\r\n\t设备:%s\r\n\t服务:%s\r\n\t特征:%s\r\n\t数据:%s\r\n\t数据(HEX):%s")),wxString(_Data->perh.address()),_Data->ServiceUUID,_Data->CharUUID,wxString::FromUTF8(str.c_str(),str.length()),hexstr);
+
+                        };
+                        if(perh.notify(_Data->ServiceUUID,_Data->CharUUID,cb))
+                        {
+                            wxMessageBox(_T("设置通知数据成功!"),_T("提示"));
+                        }
+                        else
+                        {
+                            wxMessageBox(_T("设置通知数据失败!"),_T("错误"));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1304,_T("接收通知数据"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    {
+                        auto cb=[=](SimpleBLE::ByteArray payload)
+                        {
+                            std::string str=payload;
+                            std::string hexstr;
+                            {
+                                for(size_t i=0; i<str.length(); i++)
+                                {
+                                    char buff[10]= {0};
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    hexstr+=buff;
+                                }
+                            }
+                            wxLogMessage(wxString(_T("接收到指示数据\r\n\t设备:%s\r\n\t服务:%s\r\n\t特征:%s\r\n\t数据:%s\r\n\t数据(HEX):%s")),wxString(_Data->perh.address()),_Data->ServiceUUID,_Data->CharUUID,wxString::FromUTF8(str.c_str(),str.length()),hexstr);
+
+                        };
+                        if(perh.notify(_Data->ServiceUUID,_Data->CharUUID,cb))
+                        {
+                            wxMessageBox(_T("设置指示数据成功!"),_T("提示"));
+                        }
+                        else
+                        {
+                            wxMessageBox(_T("设置指示数据失败!"),_T("错误"));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1305,_T("接收指示数据"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    {
+                        if(perh.unsubscribe(_Data->ServiceUUID,_Data->CharUUID))
+                        {
+                            wxMessageBox(_T("取消数据订阅成功!"),_T("提示"));
+                        }
+                        else
+                        {
+                            wxMessageBox(_T("取消数据订阅失败!"),_T("错误"));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1306,_T("取消数据订阅"));
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
             }
@@ -287,7 +449,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)str.c_str()[i]);
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -300,6 +462,44 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                         }
                     };
                     wxMenuItem *item=menu.Append(1401,_T("读取"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+
+                {
+                    auto menufunc=[&]( wxCommandEvent& event_menu )
+                    {
+                        InputDialog dlg(this);
+                        if(wxID_OK==dlg.ShowModal())
+                        {
+                            std::string str=dlg.GetData();
+                            std::string hexstr;
+                            {
+                                for(size_t i=0; i<str.length(); i++)
+                                {
+                                    char buff[10]= {0};
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    hexstr+=buff;
+                                }
+                            }
+                            wxLogMessage(wxString(_T("准备写入数据到设备\r\n\t设备:%s\r\n\t服务:%s\r\n\t特征:%s\r\n\t描述符:%s\r\n\t数据:%s\r\n\t数据(HEX):%s")),wxString(_Data->perh.address()),_Data->ServiceUUID,_Data->CharUUID,_Data->DescUUID,wxString::FromUTF8(str.c_str(),str.length()),hexstr);
+                            if(perh.write(_Data->ServiceUUID,_Data->CharUUID,_Data->DescUUID,str))
+                            {
+                                wxLogMessage(_T("%s 写入数据成功!"),perh.address().value_or(""));
+                                wxMessageBox(_T("写入成功!"),_T("提示"));
+                            }
+                            else
+                            {
+                                wxLogMessage(_T("%s 写入数据失败!"),perh.address().value_or(""));
+                                wxMessageBox(_T("写入失败!"),_T("错误"));
+                            }
+
+                        }
+                        else
+                        {
+                            wxLogMessage(_T("%s 取消输入数据!!"),perh.address().value_or(""));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1402,_T("写入"));
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
             }

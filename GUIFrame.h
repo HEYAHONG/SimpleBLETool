@@ -32,6 +32,8 @@
 #include <wx/dataview.h>
 #include <wx/button.h>
 #include <wx/toolbar.h>
+#include <wx/checkbox.h>
+#include <wx/wrapsizer.h>
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -151,6 +153,30 @@ class GUIPeripheral : public wxFrame
 		wxAuiManager m_mgr;
 
 		~GUIPeripheral();
+
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// Class GUIInputDialog
+///////////////////////////////////////////////////////////////////////////////
+class GUIInputDialog : public wxDialog
+{
+	private:
+
+	protected:
+		wxTextCtrl* m_textCtrl;
+		wxCheckBox* m_checkBox_Hex;
+		wxButton* m_button_ok;
+
+		// Virtual event handlers, override them in your derived class
+		virtual void OnOk( wxCommandEvent& event ) { event.Skip(); }
+
+
+	public:
+
+		GUIInputDialog( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("请输入数据:"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 500,300 ), long style = wxDEFAULT_DIALOG_STYLE );
+
+		~GUIInputDialog();
 
 };
 
