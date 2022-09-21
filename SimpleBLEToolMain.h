@@ -96,7 +96,15 @@ private:
             if(cb!=NULL)
             {
                 UpdateUI.lock.unlock();
-                cb();
+                try
+                {
+                    cb();
+                }
+                catch(...)
+                {
+                    //wxLogMessage(_T("内部错误:更新UI出错!!!"));
+                }
+
                 UpdateUI.lock.lock();
             }
 
