@@ -247,7 +247,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -276,7 +276,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -315,7 +315,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -353,7 +353,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -385,7 +385,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -452,7 +452,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }
@@ -481,7 +481,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                                 for(size_t i=0; i<str.length(); i++)
                                 {
                                     char buff[10]= {0};
-                                    snprintf(buff,sizeof(buff)-1,"%02X ",(int)(str.c_str()[i]));
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(str.c_str()[i]));
                                     hexstr+=buff;
                                 }
                             }

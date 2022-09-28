@@ -242,6 +242,30 @@ void SimpleBLEToolFrame::OnTreeAdapterRightClick( wxTreeEvent& event )
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
                 menu.AppendSeparator();
+                {
+                    auto menufunc=[&]( wxCommandEvent& event )
+                    {
+                        for(auto data:_Data->Perh.manufacturer_data())
+                        {
+                            uint16_t id=data.first;//厂商ID
+                            std::string Dat=data.second;//数据
+                            std::string hexstr;
+                            {
+                                for(size_t i=0; i<Dat.length(); i++)
+                                {
+                                    char buff[10]= {0};
+                                    snprintf(buff,sizeof(buff)-1,"%02X ",(uint8_t)(Dat.c_str()[i]));
+                                    hexstr+=buff;
+                                }
+                            }
+
+                            wxLogMessage(_T("%s 厂商自定义广播数据:\r\n\t厂商ID:%04X\r\n\t数据(%d Bytes):%s\r\n\t数据(HEX):%s\r\n"),wxString(_Data->Perh.address()),id,(int)Dat.length(),wxString::FromUTF8(Dat.c_str(),Dat.length()),wxString(hexstr));
+                        }
+                    };
+                    wxMenuItem *item=menu.Append(1002,_T("制造商自定义数据(广播包/扫描响应包)"));
+                    menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
+                }
+                menu.AppendSeparator();
 
                 PopupMenu(&menu);
             }
