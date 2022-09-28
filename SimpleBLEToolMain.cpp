@@ -14,6 +14,7 @@
 #include <wx/treectrl.h>
 #include "BLERSSIDialog.h"
 #include "BLEPeripheralDialog.h"
+#include "ble_company_id.h"
 /*
 wxTreeCtrl的item
 */
@@ -259,7 +260,7 @@ void SimpleBLEToolFrame::OnTreeAdapterRightClick( wxTreeEvent& event )
                                 }
                             }
 
-                            wxLogMessage(_T("%s 厂商自定义广播数据:\r\n\t厂商ID:%04X\r\n\t数据(%d Bytes):%s\r\n\t数据(HEX):%s\r\n"),wxString(_Data->Perh.address()),id,(int)Dat.length(),wxString::FromUTF8(Dat.c_str(),Dat.length()),wxString(hexstr));
+                            wxLogMessage(_T("%s 厂商自定义广播数据:\r\n\t厂商ID:%04X [ %s ]\r\n\t数据(%d Bytes):%s\r\n\t数据(HEX):%s\r\n"),wxString(_Data->Perh.address()),id,wxString::FromUTF8(ble_find_company_by_id(id).desc),(int)Dat.length(),wxString::FromUTF8(Dat.c_str(),Dat.length()),wxString(hexstr));
                         }
                     };
                     wxMenuItem *item=menu.Append(1002,_T("制造商自定义数据(广播包/扫描响应包)"));
