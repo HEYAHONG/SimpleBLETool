@@ -7,7 +7,7 @@ ble_company_id_t ble_find_company_by_id(uint16_t companyid)
     ble_company_id_t ret= {"65535","0xFFFF","Unkown"};
     while((data)!=NULL && data->index!=NULL && data->companyid!=NULL && data->desc!=NULL)
     {
-        data++;
+
         try
         {
             if(companyid==std::stoul(std::string(data->companyid),NULL,16))
@@ -18,8 +18,10 @@ ble_company_id_t ble_find_company_by_id(uint16_t companyid)
         }
         catch(...)
         {
+            data++;
             continue;
         }
+        data++;
     }
     return ret;
 }
