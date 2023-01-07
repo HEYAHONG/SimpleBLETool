@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SimpleBLETool
+GenericName=SimpleBLETool
+Comment=SimpleBLETool By HYH
+Exec=SimpleBLETool
+Icon=SimpleBLETool
+Type=Application
+Categories=System;X11;Bluetooth

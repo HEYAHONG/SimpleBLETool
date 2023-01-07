@@ -103,7 +103,7 @@ SimpleBLEToolFrame::SimpleBLEToolFrame(wxFrame *frame)
         };
 
         SimpleBLE::Logging::Logger::get()->set_callback(cb);
-        SimpleBLE::Logging::Logger::get()->set_level(SimpleBLE::Logging::VERBOSE);
+        SimpleBLE::Logging::Logger::get()->set_level(SimpleBLE::Logging::Verbose);
 
     }
 
