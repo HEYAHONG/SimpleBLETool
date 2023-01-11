@@ -63,7 +63,7 @@ include(${wxWidgets_USE_FILE})
 target_link_libraries(${PROJECT_NAME} ${wxWidgets_LIBRARIES})
 
 #添加simpleble库
-add_subdirectory(SimpleBLE/simpleble/)
+add_subdirectory(SimpleBLE/simpleble/  EXCLUDE_FROM_ALL SYSTEM)
 target_link_libraries(${PROJECT_NAME} simpleble::simpleble)
 file(GLOB_RECURSE SIMPLEBLE_HEADER_FILES SimpleBLE/simpleble/*.h )
 target_sources(${PROJECT_NAME} PUBLIC  ${SIMPLEBLE_HEADER_FILES})
