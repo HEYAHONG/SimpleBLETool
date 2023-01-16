@@ -85,7 +85,11 @@ SimpleBLEToolFrame::SimpleBLEToolFrame(wxFrame *frame)
         {
             //设置日志窗口
             wxLogTextCtrl *logger=new wxLogTextCtrl(m_textCtrlLog);
-            wxLog::SetActiveTarget(logger);
+            wxLog *oldlog=wxLog::SetActiveTarget(logger);
+            if(oldlog!=NULL)
+            {
+                delete oldlog;
+            }
         }
     }
 
@@ -116,7 +120,28 @@ SimpleBLEToolFrame::SimpleBLEToolFrame(wxFrame *frame)
 SimpleBLEToolFrame::~SimpleBLEToolFrame()
 {
     m_treeCtrl_adapter->DeleteAllItems();
-    wxLog::EnableLogging(false);
+    {
+        wxLog::DontCreateOnDemand();
+        wxLog *log=wxLog::SetActiveTarget(new wxLogStderr);
+        if(log!=NULL)
+        {
+            wxLogChain *chain=NULL;
+            do
+            {
+                chain=dynamic_cast<wxLogChain *>(log);
+                if(chain!=NULL)
+                {
+                    log=chain->GetOldLog();
+                    delete chain;
+                }
+            }
+            while(chain!=NULL);
+            if(log!=NULL)
+            {
+                delete log;
+            }
+        }
+    }
 }
 
 void SimpleBLEToolFrame::OnClose(wxCloseEvent &event)
