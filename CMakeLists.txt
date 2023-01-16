@@ -51,7 +51,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 		     PROPERTY WIN32_EXECUTABLE TRUE )
 	target_compile_options(${PROJECT_NAME}
 				PUBLIC /utf-8)
-	set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS}  " //MANIFESTFILE:${CMAKE_CURRENT_SOURCE_DIR}/win32/window_resources.manifest " )
+	
 endif()
 
 
