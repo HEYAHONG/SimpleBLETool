@@ -97,7 +97,7 @@ BLEPeripheralDialog::~BLEPeripheralDialog()
 {
     {
         SimpleBLE::Safe::Peripheral perh(Perh);
-        if(perh.initialized())
+        if(Perh.initialized())
         {
             perh.set_callback_on_connected([]() {});
             perh.set_callback_on_disconnected([]() {});

@@ -66,6 +66,8 @@ if(MSVC)
         string(REGEX REPLACE "/MD" "/MT" ${var} "${${var}}")
       endif()
     endforeach()
+    add_definitions(-D_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING )
+    add_compile_options(/Gd /EHsc)
 endif(MSVC)
 
 #添加wxWidgets库
