@@ -225,6 +225,7 @@ extern "C"
 #define SIMPLEPROFILE_CHAR4_UUID            0xFFF4
 #define SIMPLEPROFILE_CHAR5_UUID            0xFFF5
 #define SIMPLEPROFILE_CHAR6_UUID            0xFFF6
+#define SIMPLEPROFILE_CHAR7_UUID            0xFFF7
 
 
 

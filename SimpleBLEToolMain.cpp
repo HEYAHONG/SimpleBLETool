@@ -100,7 +100,7 @@ SimpleBLEToolFrame::SimpleBLEToolFrame(wxFrame *frame)
             wxString log=wxString(_T("SimpleBLE日志:"))+"\r\n";
             log+=wxString(_T("\tLevel:"))+wxString::FromCDouble(lv)+"\r\n";
             log+=wxString(_T("\tModule:"))+module+"\t";
-            log+=wxString(file+_T(":"))+wxString::FromDouble(line)+"\r\n";
+            log+=wxString(wxString::FromUTF8(file.c_str())+_T(":"))+wxString::FromDouble(line)+"\r\n";
             log+=wxString(_T("\tfunction:"))+function+"\r\n";
             log+=message;
             wxLogMessage(log);

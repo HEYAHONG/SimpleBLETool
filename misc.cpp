@@ -211,7 +211,8 @@ static const BLEUuidDesc_t desc_array[]=
     MicroToBLEUuidDesc(SIMPLEPROFILE_CHAR3_UUID),//            0xFFF3
     MicroToBLEUuidDesc(SIMPLEPROFILE_CHAR4_UUID),//            0xFFF4
     MicroToBLEUuidDesc(SIMPLEPROFILE_CHAR5_UUID),//            0xFFF5
-    MicroToBLEUuidDesc(SIMPLEPROFILE_CHAR6_UUID)//            0xFFF6
+    MicroToBLEUuidDesc(SIMPLEPROFILE_CHAR6_UUID),//            0xFFF6
+    MicroToBLEUuidDesc(SIMPLEPROFILE_CHAR7_UUID),//            0xFFF7
 
 };
 
