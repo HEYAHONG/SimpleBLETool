@@ -38,11 +38,11 @@ BLERSSIDialog::BLERSSIDialog( wxWindow* parent):GUIBLERSSIDialog(parent)
                     std::chrono::system_clock::time_point t = std::chrono::system_clock::now();
                     time_t c = std::chrono::system_clock::to_time_t(t);
                     struct tm m_tm;
-                    #ifdef WIN32
+#ifdef WIN32
                     localtime_s(&m_tm,&c);
-                    #else
+#else
                     localtime_r(&c,&m_tm);
-                    #endif // WIN32
+#endif // WIN32
 
                     out<<std::put_time(&m_tm, "%F %T ") <<std::setfill('0')<<std::setw(3)<<(std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()) % 1000).count();
                     time_stamp=out.str();
@@ -74,7 +74,7 @@ void BLERSSIDialog::SetBLEPerh(SimpleBLE::Peripheral _Perh)
 
 void  BLERSSIDialog::SetOnClose(std::function<void(void)> OnClose)
 {
-     OnCloseCb=OnClose;
+    OnCloseCb=OnClose;
 }
 
 void BLERSSIDialog::OnClose( wxCloseEvent& event )

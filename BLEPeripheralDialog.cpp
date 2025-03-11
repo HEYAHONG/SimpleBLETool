@@ -43,9 +43,10 @@ class wxTreeCtrlServiceCharItemData:public wxTreeItemData
 {
 public:
     SimpleBLE::Peripheral perh;
+    SimpleBLE::Characteristic Char;
     SimpleBLE::BluetoothUUID ServiceUUID;
     SimpleBLE::BluetoothUUID CharUUID;
-    wxTreeCtrlServiceCharItemData(SimpleBLE::Peripheral _perh,SimpleBLE::BluetoothUUID _ServiceUUID,SimpleBLE::BluetoothUUID _CharUUID):perh(_perh),ServiceUUID(_ServiceUUID),CharUUID(_CharUUID)
+    wxTreeCtrlServiceCharItemData(SimpleBLE::Peripheral _perh,SimpleBLE::Characteristic _Char,SimpleBLE::BluetoothUUID _ServiceUUID,SimpleBLE::BluetoothUUID _CharUUID):perh(_perh),Char(_Char),ServiceUUID(_ServiceUUID),CharUUID(_CharUUID)
     {
 
     }
@@ -226,6 +227,8 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
             if(_Data!=NULL)
             {
                 //特征
+                SimpleBLE::Characteristic & Char=_Data->Char;
+                if(Char.can_read())
                 {
                     auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
@@ -263,6 +266,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
 
+                if(Char.can_write_request())
                 {
                     auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
@@ -302,6 +306,8 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
 
+
+                if(Char.can_write_command())
                 {
                     auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
@@ -341,6 +347,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
 
+                if(Char.can_notify())
                 {
                     auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
@@ -373,6 +380,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
 
+                if(Char.can_indicate())
                 {
                     auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
@@ -405,6 +413,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                     menu.Bind(wxEVT_COMMAND_MENU_SELECTED,menufunc,item->GetId(),item->GetId());
                 }
 
+                if(Char.can_notify() || Char.can_indicate())
                 {
                     auto menufunc=[=]( wxCommandEvent& event_menu )
                     {
@@ -599,7 +608,37 @@ void BLEPeripheralDialog::UpdateStatus()
                         wxTreeItemId serviceid=m_treeCtrl->AppendItem(root,wxString(_T("服务: "))+ToDesc(service.uuid()),-1,-1,new wxTreeCtrlServiceItemData(Perh,service.uuid()));
                         for (auto characteristic : service.characteristics())
                         {
-                            wxTreeItemId charid=m_treeCtrl->AppendItem(serviceid,wxString(_T("特征: "))+ToDesc(characteristic.uuid()),-1,-1,new wxTreeCtrlServiceCharItemData(Perh,service.uuid(),characteristic.uuid()));
+                            auto GetCharPropInfo=[](SimpleBLE::Characteristic & Char)->wxString
+                            {
+                                wxString ret;
+                                if(Char.initialized())
+                                {
+                                    ret+=_T(" (");
+                                    if(Char.can_read())
+                                    {
+                                        ret+=_T("Read");
+                                    }
+                                    if(Char.can_write_request())
+                                    {
+                                        ret+=_T(" WriteRequest ");
+                                    }
+                                    if(Char.can_write_command())
+                                    {
+                                        ret+=_T(" WriteCommand ");
+                                    }
+                                    if(Char.can_notify())
+                                    {
+                                        ret+=_T(" Notify ");
+                                    }
+                                    if(Char.can_indicate())
+                                    {
+                                        ret+=_T(" Indicate ");
+                                    }
+                                    ret+=_T(") ");
+                                }
+                                return ret;
+                            };
+                            wxTreeItemId charid=m_treeCtrl->AppendItem(serviceid,wxString(_T("特征: "))+ToDesc(characteristic.uuid())+GetCharPropInfo(characteristic),-1,-1,new wxTreeCtrlServiceCharItemData(Perh,characteristic,service.uuid(),characteristic.uuid()));
                             for (auto& descriptor : characteristic.descriptors())
                             {
                                 wxTreeItemId descid=m_treeCtrl->AppendItem(charid,wxString(_T("描述符: "))+ToDesc(descriptor.uuid()),-1,-1,new wxTreeCtrlServiceCharDescItemData(Perh,service.uuid(),characteristic.uuid(),descriptor.uuid()));
