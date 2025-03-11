@@ -400,7 +400,7 @@ void BLEPeripheralDialog::OnTreeItemRightClick( wxTreeEvent& event )
                             wxLogMessage(wxString(_T("接收到指示数据\r\n\t设备:%s\r\n\t服务:%s\r\n\t特征:%s\r\n\t数据:%s\r\n\t数据(HEX):%s")),wxString(_Data->perh.address()),_Data->ServiceUUID,_Data->CharUUID,wxString::FromUTF8(str.c_str(),str.length()),hexstr);
 
                         };
-                        if(perh.notify(_Data->ServiceUUID,_Data->CharUUID,cb))
+                        if(perh.indicate(_Data->ServiceUUID,_Data->CharUUID,cb))
                         {
                             wxMessageBox(_T("设置指示数据成功!"),_T("提示"));
                         }
