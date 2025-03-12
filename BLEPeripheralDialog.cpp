@@ -529,7 +529,8 @@ void BLEPeripheralDialog::UpdateStatus()
         mainwindow->AddUpdateUIFuncitonByOther([=]()
         {
             SimpleBLE::Safe::Peripheral perh(Perh);
-            SetTitle(wxString(perh.identifier().value_or("")) + " [" <<  perh.address().value_or("") + "] ");
+            uint16_t mtu=perh.mtu().value_or(0);
+            SetTitle(wxString(perh.identifier().value_or("")) + " [" <<  perh.address().value_or("") + "] "+(mtu!=0?wxString::Format(_T(" mtu=%d "),(int)mtu):_T("")));
             {
                 auto is_paired=perh.is_paired();
                 m_button_unpair->Enable(false);
@@ -585,7 +586,7 @@ void BLEPeripheralDialog::UpdateStatus()
             {
                 if(m_treeCtrl->GetCount()!=0)
                     m_treeCtrl->DeleteAllItems();
-                wxTreeItemId root=m_treeCtrl->AddRoot(wxString(Perh.identifier()) + " [" <<  Perh.address() + "]",-1,-1,new wxTreeCtrlPerhItemData(Perh));
+                wxTreeItemId root=m_treeCtrl->AddRoot(wxString(perh.identifier().value_or("")) + " [" <<  perh.address().value_or("") + "] "+(mtu!=0?wxString::Format(_T("mtu=%d"),(int)mtu):_T("")),-1,-1,new wxTreeCtrlPerhItemData(Perh));
 
                 auto services = perh.services();
                 if(services.has_value())
