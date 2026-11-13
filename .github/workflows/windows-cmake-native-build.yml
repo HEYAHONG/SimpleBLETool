@@ -281,14 +281,16 @@ jobs:
 
           $ciProjectInclude = Join-Path $env:RUNNER_TEMP 'ci-project-include.cmake'
           @'
-          # 由CI注入,不修改工程源代码。
+          # Injected by CI; the project sources are not modified.
           if(DEFINED _SIMPLEBLETOOL_CI_INJECTED)
               return()
           endif()
           set(_SIMPLEBLETOOL_CI_INJECTED TRUE)
 
-          # 1) 打包所需的运行时动态库(如wxWidgets及其依赖):
-          #    目录由-DSIMPLEBLETOOL_RUNTIME_DLL_DIRS注入,package时自动安装到bin目录下。
+          # 1) Runtime DLLs required for packaging (e.g. wxWidgets and its
+          #    dependencies). The directories are injected with
+          #    -DSIMPLEBLETOOL_RUNTIME_DLL_DIRS; they are installed next to the
+          #    executable by the package step.
           if(SIMPLEBLETOOL_RUNTIME_DLL_DIRS)
               set(_ci_runtime_dlls "")
               foreach(_ci_dll_dir IN LISTS SIMPLEBLETOOL_RUNTIME_DLL_DIRS)
@@ -305,12 +307,41 @@ jobs:
               unset(_ci_dll_dir)
           endif()
 
-          # 2) 使用动态C运行库(/MD):工程默认使用静态运行库(/MT),
-          #    但vcpkg提供的动态库(DLL)使用/MD,两者必须一致。
+          # 2) Use the dynamic C runtime (/MD): the project defaults to /MT, but
+          #    the DLLs provided by vcpkg use /MD, so both must match.
           add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX>:/MD>")
 
-          # 3) 程序安装在bin目录下,NSIS快捷方式需要指向该目录。
+          # 3) The NSIS shortcut must point to the bin directory.
           set(CPACK_NSIS_EXECUTABLES_DIRECTORY bin)
+
+          # 4) Normalize the compile definitions of the SimpleBLE submodule.
+          #    Its CMakeLists.txt passes "/D_WIN32_WINNT=..." and
+          #    "/D_USE_MATH_DEFINES" to target_compile_definitions(), which
+          #    becomes -D/D_WIN32_WINNT=... Current MSVC rejects such a macro
+          #    name in C mode (warning C5102) and SimpleBLE builds with /WX, so
+          #    the build fails with error C2220. Strip the leading /D so the
+          #    definitions are applied as intended. This runs after the
+          #    subdirectory has been processed and before generation, so the
+          #    submodule sources and CMake files stay untouched.
+          function(_simplebletool_fix_simpleble_definitions)
+              if(NOT TARGET simpleble)
+                  return()
+              endif()
+              get_target_property(_ci_defs simpleble COMPILE_DEFINITIONS)
+              if(NOT _ci_defs)
+                  return()
+              endif()
+              set(_ci_fixed_defs "")
+              foreach(_ci_def IN LISTS _ci_defs)
+                  if(_ci_def MATCHES "^[/-]D")
+                      string(SUBSTRING "${_ci_def}" 2 -1 _ci_def)
+                  endif()
+                  list(APPEND _ci_fixed_defs "${_ci_def}")
+              endforeach()
+              set_property(TARGET simpleble PROPERTY COMPILE_DEFINITIONS ${_ci_fixed_defs})
+              message(STATUS "CI: normalized SimpleBLE compile definitions: ${_ci_fixed_defs}")
+          endfunction()
+          cmake_language(DEFER CALL _simplebletool_fix_simpleble_definitions)
           '@ | Set-Content -Path $ciProjectInclude -Encoding ASCII
 
           "CI_TOOLCHAIN_FILE=$($ciToolchain -replace '\\', '/')" >> $env:GITHUB_ENV

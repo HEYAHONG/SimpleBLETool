@@ -48,6 +48,9 @@ jobs:
           command -v cmake >/dev/null 2>&1 || packages="$packages cmake"
           command -v cc >/dev/null 2>&1 || packages="$packages build-essential"
           command -v dpkg-deb >/dev/null 2>&1 || packages="$packages dpkg"
+          # dpkg-shlibdeps is used by CPack to compute the deb dependencies
+          # from the libraries the executable actually links against.
+          command -v dpkg-shlibdeps >/dev/null 2>&1 || packages="$packages dpkg-dev"
 
           # Pick the newest wxWidgets development package available.
           wx_dev="$(apt-cache search --names-only '^libwxgtk[0-9].*-dev$' \
@@ -98,10 +101,31 @@ jobs:
       - name: Package deb
         # The DEB generator is configured by CMakeLists.txt, so the package
         # target produces a .deb archive in the build directory.
-        run: >-
-          cmake --build ${{ github.workspace }}/build
-          --config ${{ env.BUILD_TYPE }}
-          --target package
+        # The dependency list written by the project is replaced here (in the
+        # generated CPack configuration only, the sources stay untouched) so
+        # that CPack computes the dependencies from the shared libraries the
+        # executable actually links against. The hardcoded library names in
+        # CMakeLists.txt do not match current distributions (e.g.
+        # libwxgtk3.0-gtk3-0v5 does not exist on Ubuntu 24.04).
+        run: |
+          build_dir="${{ github.workspace }}/build"
+          cpack_config="${build_dir}/CPackConfig.cmake"
+          if [ ! -f "$cpack_config" ]; then
+            echo "ERROR: CPack configuration not found: $cpack_config" >&2
+            exit 1
+          fi
+
+          # Drop the hardcoded dependency list.
+          sed -i 's/^set(CPACK_DEBIAN_PACKAGE_DEPENDS .*/set(CPACK_DEBIAN_PACKAGE_DEPENDS "")/' "$cpack_config"
+          # Enable automatic dependency generation (dpkg-shlibdeps).
+          if grep -q '^set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ' "$cpack_config"; then
+            sed -i 's/^set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS .*/set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS "ON")/' "$cpack_config"
+          else
+            echo 'set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS "ON")' >> "$cpack_config"
+          fi
+          grep -E '^set\(CPACK_DEBIAN_PACKAGE_(DEPENDS|SHLIBDEPS) ' "$cpack_config"
+
+          cmake --build "$build_dir" --config "${{ env.BUILD_TYPE }}" --target package
 
       - name: Rename deb package
         # The archive name is read from the generated CPack configuration
