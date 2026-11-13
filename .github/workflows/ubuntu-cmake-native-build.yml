@@ -1,0 +1,163 @@
+# This workflow builds the project natively on Ubuntu and publishes the
+# generated .deb package to the "testing" release.
+# All versions and package names are detected at runtime so that the workflow
+# keeps working when ubuntu-latest (or the available wxWidgets/dbus versions)
+# changes.
+name: ubuntu cmake native build
+
+on:
+  push:
+    tags: [testing]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        # Retry once if the initial clone/fetch fails due to a network error.
+        id: checkout
+        uses: actions/checkout@v5
+        with:
+          # SimpleBLE is a git submodule of this project.
+          submodules: recursive
+        continue-on-error: true
+
+      - name: Checkout (retry)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        # The project needs wxWidgets (find_package(wxWidgets REQUIRED all)
+        # links every library reported by wx-config) and the dbus headers used
+        # by SimpleBLE/simpledbus. Package names and versions are looked up in
+        # the current distribution instead of being hardcoded.
+        run: |
+          sudo apt-get update
+
+          packages=""
+          # Make sure the toolchain is present even if the runner image changes.
+          command -v cmake >/dev/null 2>&1 || packages="$packages cmake"
+          command -v cc >/dev/null 2>&1 || packages="$packages build-essential"
+          command -v dpkg-deb >/dev/null 2>&1 || packages="$packages dpkg"
+
+          # Pick the newest wxWidgets development package available.
+          wx_dev="$(apt-cache search --names-only '^libwxgtk[0-9].*-dev$' \
+            | awk '{print $1}' | sort -V | tail -n 1)"
+          if [ -z "$wx_dev" ]; then
+            echo "ERROR: no wxWidgets development package was found" >&2
+            exit 1
+          fi
+          echo "Detected wxWidgets development package: $wx_dev"
+          packages="$packages $wx_dev"
+
+          # gl/webview/media are split into separate development packages by
+          # some distributions; install them when they exist.
+          wx_version="$(echo "$wx_dev" | sed -E 's/^libwxgtk(.*)-dev$/\1/')"
+          while read -r pkg; do
+            [ -n "$pkg" ] && packages="$packages $pkg"
+          done < <(apt-cache search --names-only "^libwxgtk-[a-z0-9]+${wx_version}-dev$" \
+                     | awk '{print $1}')
+
+          # dbus development headers (version detected, e.g. libdbus-1-dev).
+          dbus_dev="$(apt-cache search --names-only '^libdbus-[0-9].*-dev$' \
+            | awk '{print $1}' | sort -V | tail -n 1)"
+          if [ -z "$dbus_dev" ]; then
+            echo "ERROR: no dbus development package was found" >&2
+            exit 1
+          fi
+          echo "Detected dbus development package: $dbus_dev"
+          packages="$packages $dbus_dev"
+
+          sudo apt-get install -y $packages
+
+      - name: Configure CMake
+        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only
+        # required if you are using a single-configuration generator such as make.
+        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
+        run: >-
+          cmake -B ${{ github.workspace }}/build
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          ${{ github.workspace }}
+
+      - name: Build
+        # Build your program with the given configuration
+        run: >-
+          cmake --build ${{ github.workspace }}/build
+          --config ${{ env.BUILD_TYPE }}
+          --parallel "$(nproc)"
+
+      - name: Package deb
+        # The DEB generator is configured by CMakeLists.txt, so the package
+        # target produces a .deb archive in the build directory.
+        run: >-
+          cmake --build ${{ github.workspace }}/build
+          --config ${{ env.BUILD_TYPE }}
+          --target package
+
+      - name: Rename deb package
+        # The archive name is read from the generated CPack configuration
+        # (instead of assuming a fixed project name / "Linux" suffix) and the
+        # trailing system name is replaced by "<system>-<version>-snapshot".
+        run: |
+          build_dir="${{ github.workspace }}/build"
+          cpack_config="${build_dir}/CPackConfig.cmake"
+
+          package_file_name="$(sed -n 's/^set(CPACK_PACKAGE_FILE_NAME "\(.*\)")$/\1/p' "$cpack_config")"
+          cpack_system_name="$(sed -n 's/^set(CPACK_SYSTEM_NAME "\(.*\)")$/\1/p' "$cpack_config")"
+          if [ -z "$package_file_name" ] || [ -z "$cpack_system_name" ]; then
+            echo "ERROR: failed to read the CPack configuration from $cpack_config" >&2
+            exit 1
+          fi
+          echo "CPack package name: $package_file_name ($cpack_system_name)"
+
+          # System name and version of the build host, detected at runtime.
+          if [ -r /etc/os-release ]; then
+            . /etc/os-release
+          fi
+          system_name="${NAME:-$(uname -s)}"
+          system_name="${system_name// /}"
+          system_version="${VERSION_ID:-$(uname -r)}"
+
+          deb_file="${build_dir}/${package_file_name}.deb"
+          if [ ! -f "$deb_file" ]; then
+            echo "ERROR: deb package not found: $deb_file" >&2
+            ls -l "$build_dir" >&2
+            exit 1
+          fi
+
+          asset_base="${package_file_name%-${cpack_system_name}}"
+          asset="${asset_base}-${system_name}-${system_version}-snapshot.deb"
+          mv -v "$deb_file" "${build_dir}/${asset}"
+
+          echo "DEB_ASSET=${build_dir}/${asset}" >> "$GITHUB_ENV"
+          echo "Release asset: $asset"
+
+      - name: Upload snapshot to testing release
+        # Only publish from pushes to the testing tag; pull requests from forks
+        # have a read-only GITHUB_TOKEN and cannot upload release assets.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          max_attempts=5
+          for attempt in $(seq 1 "${max_attempts}"); do
+            echo "gh release upload: attempt ${attempt} of ${max_attempts}"
+            if gh release upload testing "${DEB_ASSET}" --clobber; then
+              exit 0
+            fi
+            if [ "${attempt}" -eq "${max_attempts}" ]; then
+              echo "gh release upload failed after ${max_attempts} attempts."
+              exit 1
+            fi
+            delay=$((10 * attempt))
+            echo "gh release upload failed; retrying in ${delay} seconds."
+            sleep "${delay}"
+          done

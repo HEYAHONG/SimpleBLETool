@@ -1,0 +1,501 @@
+# This workflow builds the CMake project natively on Windows with MSVC for the
+# x86 (win32) and x64 (win64) architectures, creates the NSIS installer with
+# the "package" target and publishes it together with a portable zip archive
+# to the "testing" release.
+# Everything is detected at runtime (system name/version, MSVC version, vcpkg
+# layout, CPack names, NSIS location) so that the workflow keeps working when
+# windows-latest changes. The project sources are not modified: the extra
+# CMake logic (runtime DLLs, dynamic C runtime, installer layout) is injected
+# through CMAKE_PROJECT_INCLUDE.
+name: windows cmake native build
+
+on:
+  push:
+    tags: [testing]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  # NMake Makefiles (a single-configuration generator) is used instead of the
+  # Visual Studio generator: the SimpleBLE subdirectory is added with
+  # EXCLUDE_FROM_ALL, which excludes its targets from Visual Studio
+  # solution/project files. NMake Makefiles keeps every target buildable.
+  CMAKE_GENERATOR: NMake Makefiles
+  # NMake Makefiles is single-configuration, so the build type is exported.
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    strategy:
+      # Build both architectures even if one of them fails.
+      fail-fast: false
+      matrix:
+        include:
+          - triplet: x64-windows
+            vcvars: vcvars64.bat
+          - triplet: x86-windows
+            vcvars: vcvars32.bat
+
+    env:
+      # vcpkg triplet used for the third-party libraries. The dynamic variant
+      # is required so the runtime DLLs can be packaged.
+      VCPKG_TRIPLET: ${{ matrix.triplet }}
+
+    steps:
+      - name: Checkout
+        # Retry once if the initial clone/fetch fails due to a network error.
+        id: checkout
+        uses: actions/checkout@v5
+        with:
+          # SimpleBLE is a git submodule of this project.
+          submodules: recursive
+        continue-on-error: true
+
+      - name: Checkout (retry)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Detect system name and version
+        # The Windows product name and version are detected on the runner (no
+        # fixed values) and used for the release asset names, e.g.
+        # "Windows-Server-2025". WIN32_OperatingSystem reports the product name
+        # (with the edition) and the build version.
+        shell: pwsh
+        run: |
+          $caption = $null
+          $buildVersion = $null
+          try {
+            $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+            $caption = $osInfo.Caption
+            $buildVersion = $osInfo.Version
+          } catch {
+            Write-Warning "Win32_OperatingSystem is not available: $_"
+          }
+
+          $systemName = $null
+          $systemVersion = $null
+          if ($caption) {
+            $productName = ($caption -replace '^Microsoft\s+', '').Trim()
+            # "Windows Server 2025 Datacenter" -> name "Windows Server", version "2025"
+            # "Windows 11 Pro"                 -> name "Windows", version "11"
+            if ($productName -match '^(Windows(?:\s+Server)?)') {
+              $systemName = $Matches[1]
+              $remainder = $productName.Substring($systemName.Length).Trim()
+              $systemVersion = ($remainder -split '\s+')[0]
+            } else {
+              $systemName = $productName
+            }
+          }
+          if (-not $systemName) { $systemName = 'Windows' }
+          if (-not $systemVersion) { $systemVersion = $buildVersion }
+          if (-not $systemVersion) { $systemVersion = [Environment]::OSVersion.Version.ToString() }
+
+          # Keep only characters that are safe in file names.
+          $systemName = ($systemName -replace '[^A-Za-z0-9._-]+', '-').Trim('-')
+          $systemVersion = ($systemVersion -replace '[^A-Za-z0-9._-]+', '-').Trim('-')
+
+          "SYSTEM_NAME=$systemName" >> $env:GITHUB_ENV
+          "SYSTEM_VERSION=$systemVersion" >> $env:GITHUB_ENV
+          Write-Host "Runner system: $systemName $systemVersion (caption: $caption, build: $buildVersion)"
+
+      - name: Setup MSVC environment
+        # NMake Makefiles needs the MSVC developer environment (cl, nmake).
+        # The Visual Studio installation and the MSVC version are detected at
+        # runtime (Visual Studio product line, e.g. 2026 -> msvc2026); the
+        # value is used for the release asset names.
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) {
+            throw "vswhere.exe was not found: $vswhere"
+          }
+          $vsPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          $vsDisplayName = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property displayName
+          $vsProductLine = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property catalog_productLineVersion
+          if (-not $vsPath) {
+            throw 'No Visual Studio installation with the MSVC toolchain was found.'
+          }
+
+          # The x86 build uses the 32-bit developer environment.
+          $vcvars = Join-Path $vsPath 'VC\Auxiliary\Build\${{ matrix.vcvars }}'
+          if (-not (Test-Path $vcvars)) {
+            throw "MSVC environment script not found: $vcvars"
+          }
+
+          # Run vcvars*.bat in cmd and copy the resulting environment into
+          # GITHUB_ENV. GitHub's reserved variables must not be overwritten.
+          $batFile = Join-Path $env:RUNNER_TEMP 'setup-msvc.bat'
+          Set-Content -Path $batFile -Encoding ASCII `
+            -Value "@call `"$vcvars`" >nul`r`n@set"
+          $skip = '^(GITHUB_|RUNNER_|ACTIONS_|INPUT_|STATE_)'
+          $toolsetVersion = $null
+          cmd /c $batFile | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              $name = $Matches[1]
+              $value = $Matches[2]
+              if ($name -eq 'VCToolsVersion') {
+                $toolsetVersion = $value.Trim()
+              }
+              if ($name -notmatch $skip) {
+                "$name=$value" >> $env:GITHUB_ENV
+              }
+            }
+          }
+          Remove-Item $batFile -Force
+
+          if (-not $toolsetVersion) {
+            throw 'The MSVC toolset version (VCToolsVersion) was not reported by vcvars.'
+          }
+
+          # Determine the MSVC version used for the asset names at runtime:
+          # the Visual Studio product line/display name (e.g. 2026 ->
+          # msvc2026) is preferred, the detected toolset version is used as a
+          # fallback. Nothing is hardcoded.
+          $msvcVersion = $null
+          if ($vsProductLine -match '^(20[0-9]{2})') {
+            $msvcVersion = "msvc$($Matches[1])"
+          } elseif ($vsDisplayName -match '(20[0-9]{2})') {
+            $msvcVersion = "msvc$($Matches[1])"
+          } elseif ($toolsetVersion -match '^[0-9]+(\.[0-9]+)+$') {
+            $msvcVersion = "msvc$toolsetVersion"
+          } else {
+            throw "Failed to determine the MSVC version (product line: '$vsProductLine', display name: '$vsDisplayName', toolset: '$toolsetVersion')."
+          }
+          "MSVC_VERSION=$msvcVersion" >> $env:GITHUB_ENV
+          Write-Host "Visual Studio: $vsDisplayName ($vsPath)"
+          Write-Host "Visual Studio product line: $vsProductLine"
+          Write-Host "MSVC toolset: $toolsetVersion"
+          Write-Host "MSVC version for asset names: $msvcVersion"
+
+      - name: Bootstrap vcpkg
+        # Each architecture gets its own vcpkg copy (own root directory and
+        # installed tree), so the workflow does not depend on the vcpkg that
+        # happens to be preinstalled on the runner image.
+        shell: pwsh
+        env:
+          VCPKG_DISABLE_METRICS: "1"
+        run: |
+          $vcpkgRoot = Join-Path $env:RUNNER_TEMP "vcpkg-$env:VCPKG_TRIPLET"
+          $maxAttempts = 3
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            if (Test-Path (Join-Path $vcpkgRoot 'vcpkg.exe')) {
+              break
+            }
+            Write-Host "vcpkg bootstrap: attempt $attempt of $maxAttempts"
+            if (Test-Path $vcpkgRoot) {
+              Remove-Item -Recurse -Force $vcpkgRoot
+            }
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgRoot
+            if ($LASTEXITCODE -eq 0) {
+              & (Join-Path $vcpkgRoot 'bootstrap-vcpkg.bat') -disableMetrics
+              if ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $vcpkgRoot 'vcpkg.exe'))) {
+                break
+              }
+            }
+            if ($attempt -eq $maxAttempts) {
+              throw "Failed to bootstrap vcpkg ($env:VCPKG_TRIPLET)."
+            }
+            $delay = 20 * $attempt
+            Write-Warning "vcpkg bootstrap failed (exit $LASTEXITCODE); retrying in $delay seconds."
+            Start-Sleep -Seconds $delay
+          }
+          "VCPKG_ROOT=$($vcpkgRoot -replace '\\', '/')" >> $env:GITHUB_ENV
+          Write-Host "vcpkg root: $vcpkgRoot"
+
+      - name: Install vcpkg dependencies
+        # wxWidgets is provided by vcpkg. The webview feature is needed because
+        # CMakeLists.txt requests the webview component of wxWidgets.
+        shell: pwsh
+        env:
+          VCPKG_DISABLE_METRICS: "1"
+        run: |
+          $vcpkg = Join-Path (Join-Path $env:RUNNER_TEMP "vcpkg-$env:VCPKG_TRIPLET") 'vcpkg.exe'
+          $env:VCPKG_ROOT = Join-Path $env:RUNNER_TEMP "vcpkg-$env:VCPKG_TRIPLET"
+
+          # vcpkg downloads many archives (GitHub, MSYS2, ...). Retry transient
+          # network failures; already-built packages are resumed on the next
+          # attempt.
+          $maxAttempts = 5
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "vcpkg install: attempt $attempt of $maxAttempts"
+            & $vcpkg install `
+              "wxwidgets[webview]" `
+              --triplet $env:VCPKG_TRIPLET `
+              --clean-after-build
+            if ($LASTEXITCODE -eq 0) {
+              break
+            }
+            if ($attempt -eq $maxAttempts) {
+              Write-Host "vcpkg install failed after $maxAttempts attempts."
+              exit $LASTEXITCODE
+            }
+            $delay = 30 * $attempt
+            Write-Warning "vcpkg install failed (exit $LASTEXITCODE); retrying in $delay seconds."
+            Start-Sleep -Seconds $delay
+          }
+
+      - name: Prepare CMake injection
+        # Generates the files injected into the CMake project (kept in
+        # RUNNER_TEMP, so the repository is not modified):
+        #  * the toolchain file chains the vcpkg toolchain and teaches
+        #    FindwxWidgets the vcpkg Windows layout;
+        #  * the project include file adds the install rules for the runtime
+        #    DLLs, selects the dynamic C runtime and adjusts the installer
+        #    layout.
+        shell: pwsh
+        run: |
+          $vcpkgRoot = $env:VCPKG_ROOT
+          $ciToolchain = Join-Path $env:RUNNER_TEMP 'ci-toolchain.cmake'
+          @'
+          include("$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+
+          # NOTE: WIN32 is not defined yet while a toolchain file is being
+          # processed, so do not guard this with if(WIN32). Build the path from
+          # runner environment variables (normalized to forward slashes so it
+          # matches the path FindwxWidgets later caches).
+          file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" _ci_vcpkg_base)
+          set(_ci_wx_root "${_ci_vcpkg_base}/installed/$ENV{VCPKG_TRIPLET}")
+          message(STATUS "CIWXROOT=${_ci_wx_root}")
+          if(EXISTS "${_ci_wx_root}/include/wx/wx.h")
+              set(wxWidgets_ROOT_DIR "${_ci_wx_root}" CACHE PATH "" FORCE)
+              set(WX_ROOT_DIR "${_ci_wx_root}" CACHE INTERNAL "" FORCE)
+              set(wxWidgets_LIB_DIR "${_ci_wx_root}/lib" CACHE PATH "" FORCE)
+              set(WX_LIB_DIR "${_ci_wx_root}/lib" CACHE INTERNAL "" FORCE)
+              set(wxWidgets_CONFIGURATION mswu CACHE STRING "" FORCE)
+              set(wxWidgets_USE_REL_AND_DBG OFF CACHE BOOL "" FORCE)
+          endif()
+          unset(_ci_wx_root)
+          unset(_ci_vcpkg_base)
+          '@ | Set-Content -Path $ciToolchain -Encoding ASCII
+
+          $ciProjectInclude = Join-Path $env:RUNNER_TEMP 'ci-project-include.cmake'
+          @'
+          # 由CI注入,不修改工程源代码。
+          if(DEFINED _SIMPLEBLETOOL_CI_INJECTED)
+              return()
+          endif()
+          set(_SIMPLEBLETOOL_CI_INJECTED TRUE)
+
+          # 1) 打包所需的运行时动态库(如wxWidgets及其依赖):
+          #    目录由-DSIMPLEBLETOOL_RUNTIME_DLL_DIRS注入,package时自动安装到bin目录下。
+          if(SIMPLEBLETOOL_RUNTIME_DLL_DIRS)
+              set(_ci_runtime_dlls "")
+              foreach(_ci_dll_dir IN LISTS SIMPLEBLETOOL_RUNTIME_DLL_DIRS)
+                  file(GLOB _ci_dlls "${_ci_dll_dir}/*.dll")
+                  list(APPEND _ci_runtime_dlls ${_ci_dlls})
+              endforeach()
+              if(_ci_runtime_dlls)
+                  list(REMOVE_DUPLICATES _ci_runtime_dlls)
+                  install(FILES ${_ci_runtime_dlls} DESTINATION bin)
+                  message(STATUS "CI: installing ${_ci_runtime_dlls} for packaging")
+              endif()
+              unset(_ci_runtime_dlls)
+              unset(_ci_dlls)
+              unset(_ci_dll_dir)
+          endif()
+
+          # 2) 使用动态C运行库(/MD):工程默认使用静态运行库(/MT),
+          #    但vcpkg提供的动态库(DLL)使用/MD,两者必须一致。
+          add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX>:/MD>")
+
+          # 3) 程序安装在bin目录下,NSIS快捷方式需要指向该目录。
+          set(CPACK_NSIS_EXECUTABLES_DIRECTORY bin)
+          '@ | Set-Content -Path $ciProjectInclude -Encoding ASCII
+
+          "CI_TOOLCHAIN_FILE=$($ciToolchain -replace '\\', '/')" >> $env:GITHUB_ENV
+          "CI_PROJECT_INCLUDE=$($ciProjectInclude -replace '\\', '/')" >> $env:GITHUB_ENV
+          "VCPKG_DEFAULT_TRIPLET=$env:VCPKG_TRIPLET" >> $env:GITHUB_ENV
+          Write-Host "vcpkg root: $vcpkgRoot"
+
+      - name: Configure CMake
+        # Configure CMake in a 'build' subdirectory. CMAKE_BUILD_TYPE is used
+        # by the single-configuration NMake Makefiles generator.
+        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
+        # The runtime DLL directories (vcpkg bin + MSVC runtime redistributable,
+        # so the portable archive works without the VC++ redistributable) are
+        # passed to the injected CMake code.
+        shell: pwsh
+        run: |
+          $vcpkgRoot = $env:VCPKG_ROOT -replace '\\', '/'
+          $dllDirs = @("$vcpkgRoot/installed/$env:VCPKG_TRIPLET/bin")
+
+          # The MSVC runtime redistributable directory matching the target
+          # architecture (VSCMD_ARG_TGT_ARCH is exported by vcvars).
+          $redistArch = $env:VSCMD_ARG_TGT_ARCH
+          if (-not $redistArch) {
+            $redistArch = $env:VCPKG_TRIPLET.Split('-')[0]
+          }
+          if ($env:VCToolsRedistDir) {
+            $crt = Get-ChildItem -Path (Join-Path $env:VCToolsRedistDir "$redistArch\Microsoft.VC*.CRT") `
+              -Directory -ErrorAction SilentlyContinue |
+              Sort-Object Name -Descending | Select-Object -First 1
+            if ($crt) {
+              $dllDirs += ($crt.FullName -replace '\\', '/')
+            }
+          }
+          "SIMPLEBLETOOL_RUNTIME_DLL_DIRS=$($dllDirs -join ';')" >> $env:GITHUB_ENV
+
+          cmake -B "$env:GITHUB_WORKSPACE/build" `
+            -G "$env:CMAKE_GENERATOR" `
+            -DCMAKE_TOOLCHAIN_FILE="$env:CI_TOOLCHAIN_FILE" `
+            -DCMAKE_PROJECT_INCLUDE="$env:CI_PROJECT_INCLUDE" `
+            -DVCPKG_TARGET_TRIPLET=$env:VCPKG_TRIPLET `
+            -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+            -DSIMPLEBLETOOL_RUNTIME_DLL_DIRS="$($dllDirs -join ';')" `
+            "$env:GITHUB_WORKSPACE"
+          exit $LASTEXITCODE
+
+      - name: Build
+        # Build your program with the given configuration
+        shell: pwsh
+        run: |
+          cmake --build "$env:GITHUB_WORKSPACE/build" --config $env:BUILD_TYPE
+          exit $LASTEXITCODE
+
+      - name: Install NSIS
+        # CPack needs makensis to create the installer. Prefer an existing
+        # installation and fall back to the available package manager instead
+        # of assuming a fixed path.
+        shell: pwsh
+        run: |
+          function Find-Makensis {
+            $cmd = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            if ($cmd) { return $cmd.Source }
+            $candidates = @()
+            if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles 'NSIS\makensis.exe') }
+            if (${env:ProgramFiles(x86)}) { $candidates += (Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe') }
+            if ($env:ProgramData) { $candidates += (Join-Path $env:ProgramData 'chocolatey\bin\makensis.exe') }
+            foreach ($candidate in $candidates) {
+              if (Test-Path $candidate) { return $candidate }
+            }
+            return $null
+          }
+
+          $makensis = Find-Makensis
+          if (-not $makensis) {
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+              choco install nsis --yes --no-progress
+            } elseif (Get-Command winget -ErrorAction SilentlyContinue) {
+              winget install --id NSIS.NSIS --silent `
+                --accept-package-agreements --accept-source-agreements
+            } else {
+              throw 'NSIS is not installed and neither Chocolatey nor winget is available.'
+            }
+            $makensis = Find-Makensis
+          }
+          if (-not $makensis) {
+            throw 'makensis.exe was not found after installing NSIS.'
+          }
+          Write-Host "makensis: $makensis"
+          (Split-Path -Parent $makensis) >> $env:GITHUB_PATH
+
+      - name: Package
+        # The NSIS generator configured by CMakeLists.txt produces the
+        # installer in the build directory. The runtime DLLs injected through
+        # SIMPLEBLETOOL_RUNTIME_DLL_DIRS are copied next to the executable
+        # automatically by the install/package step.
+        shell: pwsh
+        run: |
+          cmake --build "$env:GITHUB_WORKSPACE/build" --config $env:BUILD_TYPE --target package
+          exit $LASTEXITCODE
+
+      - name: Rename installer and create portable zip
+        # The installer and its contents are located through the generated
+        # CPack configuration (no hardcoded project/architecture names). The
+        # installer is renamed to
+        # <cpack-name>-<system-name>-<system-version>-<msvc-version>-snapshot.exe
+        # (e.g. ...-win64-Windows-Server-2025-msvc2026-snapshot.exe) and the
+        # files it contains are archived from the CPack working directory with
+        # the tar.exe shipped with Windows (bsdtar, `-a` selects the zip format
+        # from the extension). The zip has the executable and all DLLs at its
+        # root, so it can be used without installing anything.
+        shell: pwsh
+        run: |
+          $build = Join-Path $env:GITHUB_WORKSPACE 'build'
+          $cpackConfig = Get-Content -Path (Join-Path $build 'CPackConfig.cmake') -Raw
+          $packageFileName = [regex]::Match($cpackConfig, '(?m)^set\(CPACK_PACKAGE_FILE_NAME "([^"]*)"\)').Groups[1].Value
+          $cpackSystemName = [regex]::Match($cpackConfig, '(?m)^set\(CPACK_SYSTEM_NAME "([^"]*)"\)').Groups[1].Value
+          if (-not $packageFileName -or -not $cpackSystemName) {
+            throw 'Failed to read CPACK_PACKAGE_FILE_NAME/CPACK_SYSTEM_NAME from CPackConfig.cmake.'
+          }
+          Write-Host "CPack package: $packageFileName ($cpackSystemName)"
+
+          $installer = Join-Path $build "$packageFileName.exe"
+          if (-not (Test-Path $installer)) {
+            throw "CPack installer not found: $installer"
+          }
+          $assetBase = "$packageFileName-$($env:SYSTEM_NAME)-$($env:SYSTEM_VERSION)-$($env:MSVC_VERSION)-snapshot"
+          $installerAsset = "$assetBase.exe"
+          Move-Item -Path $installer -Destination (Join-Path $build $installerAsset) -Force
+
+          # Files that the installer contains live in the CPack working
+          # directory.
+          $stage = Join-Path $build "_CPack_Packages/$cpackSystemName/NSIS/$packageFileName"
+          $packagedExe = $null
+          if (Test-Path $stage) {
+            $packagedExe = Get-ChildItem -Path $stage -File -Recurse -Filter '*.exe' -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+          }
+          if (-not $packagedExe) {
+            # Fallback: install the same files into a temporary directory.
+            $installDir = Join-Path $build 'portable'
+            cmake --install "$build" --prefix $installDir --config $env:BUILD_TYPE
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+            $packagedExe = Get-ChildItem -Path $installDir -File -Recurse -Filter '*.exe' |
+              Select-Object -First 1
+          }
+          if (-not $packagedExe) {
+            throw 'No executable was found in the CPack working directory.'
+          }
+
+          $zipAsset = "$assetBase.zip"
+          $tar = Join-Path $env:SystemRoot 'System32\tar.exe'
+          & $tar -C $packagedExe.Directory.FullName -a -c -f (Join-Path $build $zipAsset) .
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          Get-ChildItem -Path $packagedExe.Directory.FullName -File |
+            Select-Object -ExpandProperty Name
+          "EXE_ASSET=$installerAsset" >> $env:GITHUB_ENV
+          "ZIP_ASSET=$zipAsset" >> $env:GITHUB_ENV
+          Write-Host "Release assets: $installerAsset, $zipAsset"
+
+      - name: Upload snapshots to testing release
+        # Only publish from pushes to the testing tag; pull requests from forks
+        # have a read-only GITHUB_TOKEN and cannot upload release assets.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $maxAttempts = 5
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "gh release upload: attempt $attempt of $maxAttempts"
+            & gh release upload testing `
+              "$env:GITHUB_WORKSPACE\build\$($env:EXE_ASSET)" `
+              "$env:GITHUB_WORKSPACE\build\$($env:ZIP_ASSET)" `
+              --clobber
+            if ($LASTEXITCODE -eq 0) {
+              break
+            }
+            if ($attempt -eq $maxAttempts) {
+              Write-Host "gh release upload failed after $maxAttempts attempts."
+              exit $LASTEXITCODE
+            }
+            $delay = 10 * $attempt
+            Write-Warning "gh release upload failed (exit $LASTEXITCODE); retrying in $delay seconds."
+            Start-Sleep -Seconds $delay
+          }
